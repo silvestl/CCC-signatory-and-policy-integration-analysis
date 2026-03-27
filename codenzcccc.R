@@ -608,7 +608,7 @@ ggplot(df3_no_Limassol,
   labs(x = "Number of Co-Signatories",
        y = "Weighted Bipartite Network Density")
 #bivariate correlations
-numeric_vars <- c("Total.x", "log_gdp", "log_pop", "CCPI", "CityNet", "AirPoll")
+numeric_vars <- c("Total.x", "log_gdp", "log_pop", "CCPI", "CityNet")
 cor_results <- sapply(numeric_vars, function(var) {
   x <- df_complete_no_Lim[[var]]
   y <- log(df_complete_no_Lim$WeightedDensity)

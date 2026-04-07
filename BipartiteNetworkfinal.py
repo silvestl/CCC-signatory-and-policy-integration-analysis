@@ -116,42 +116,10 @@ cbar = fig.colorbar(sm, cax=cbar_ax, label="Gini coefficient")
 plt.subplots_adjust(left=0.08, right=0.9, wspace=0.3)
 plt.show()
 
-#dominant actors
-dominant_list = []
-for city, B in bipartite_by_city.items():
-    stakeholder_nodes = [n for n,d in B.nodes(data=True) if d["bipartite"] == 0]
-    policy_nodes = [n for n,d in B.nodes(data=True) if d["bipartite"] == 1]
-    if stakeholder_nodes:
-        stakeholder_degrees = {n: B.degree(n, weight="weight") for n in stakeholder_nodes}
-        max_deg_stake = max(stakeholder_degrees.values())
-        dominant_stakeholders = [n for n, deg in stakeholder_degrees.items() if deg == max_deg_stake]
-    else:
-        dominant_stakeholders = []
-        max_deg_stake = 0
-
-    if policy_nodes:
-        policy_degrees = {n: B.degree(n, weight="weight") for n in policy_nodes}
-        max_deg_policy = max(policy_degrees.values())
-        dominant_policies = [n for n, deg in policy_degrees.items() if deg == max_deg_policy]
-    else:
-        dominant_policies = []
-        max_deg_policy = 0
-    dominant_list.append({
-        "City": city,
-        "Dominant_Stakeholders": ", ".join(dominant_stakeholders),
-        "MaxDegree_Stakeholders": max_deg_stake,
-        "Dominant_PolicySectors": ", ".join(dominant_policies),
-        "MaxDegree_PolicySectors": max_deg_policy
-    })
-dominant_df = pd.DataFrame(dominant_list)
-output_path = r"c:\Users\silvestl\Desktop\NetworkNZC\DominantActorsByCity.xlsx"
-dominant_df.to_excel(output_path, index=False)
-print(f"Dominant actors saved to: {output_path}")
-
 #plot for selected cities network
 import seaborn as sns
 sns.set_theme(style="whitegrid")
-cities_to_plot = ["Bergamo", "Seville", "Torino", "Liepaja", "Limassol", "Dublin"]
+cities_to_plot = ["Bergamo", "Seville", "Torino", "Wroclaw", "Limassol", "Dublin"]
 
 fig, axes = plt.subplots(3, 2, figsize=(16, 14))
 axes = axes.flatten()
@@ -162,47 +130,68 @@ for ax, city in zip(axes, cities_to_plot):
         ax.set_title(f"{city} — no data", fontsize=12)
         ax.axis("off")
         continue
+    # partitions
     left = [n for n, d in B.nodes(data=True) if d.get("bipartite") == 0]   # stakeholders
     right = [n for n, d in B.nodes(data=True) if d.get("bipartite") == 1]  # policies
+
+    # order nodes by (weighted) degree for nicer spacing
     left_sorted = sorted(left, key=lambda n: B.degree(n, weight='weight'))
     right_sorted = sorted(right, key=lambda n: B.degree(n, weight='weight'))
+
+    # node weighted degrees
     node_wdeg = {n: B.degree(n, weight='weight') for n in B.nodes()}
+
+    # compute node "area" (matplotlib expects area in points^2) and clamp
     min_area = 25
     area_scale = 25
     node_area = {n: max(min_area, node_wdeg.get(n, 0) * area_scale) for n in B.nodes()}
+
+    # create a size-aware column layout so nodes don't overlap:
     def col_positions(nodes, x, pad=0.03, gap=0.01):
         if not nodes:
             return {}
         radii = np.array([np.sqrt(node_area[n]) for n in nodes], dtype=float)
+        # Calculate cumulative y positions starting from pad, with gap between nodes
         y_positions = [pad + radii[0]]
         for i in range(1, len(radii)):
             y_positions.append(y_positions[-1] + radii[i-1] + gap + radii[i])
+        # Normalize to fit within [pad, 1-pad]
         total_height = y_positions[-1] + radii[-1] - pad
         scale = (1 - 2 * pad) / total_height if total_height > 0 else 1
         y_positions = [pad + (y - pad) * scale for y in y_positions]
         return {node: (x, float(y)) for node, y in zip(nodes, y_positions)}
+
     pos = {}
     pos.update(col_positions(left_sorted, 0.0))
     pos.update(col_positions(right_sorted, 1.0))
+
+    # node sizes list (area in points^2)
     left_sizes = [node_area[n] for n in left_sorted]
     right_sizes = [node_area[n] for n in right_sorted]
+
+    # edge widths scaled from weight (safe get)
     edge_weights = [d.get("weight", 1) for _, _, d in B.edges(data=True)]
     edge_widths = [max(0.5, np.log1p(w) * 2.5) for w in edge_weights]
+
+    # draw edges behind nodes
     nx.draw_networkx_edges(B, pos, alpha=0.5, width=edge_widths, edge_color="#888888", ax=ax)
     nx.draw_networkx_nodes(B, pos, nodelist=left_sorted, node_color="#3B8BC2", 
                            node_size=left_sizes, label="Stakeholder Types", ax=ax)
     nx.draw_networkx_nodes(B, pos, nodelist=right_sorted, node_color="#35B779",
                            node_size=right_sizes, label="Policy Sectors", ax=ax)
 
-    nx.draw_networkx_labels(B, {n: (pos[n][0]-0.03, pos[n][1]) for n in left_sorted},
-                            labels={n: n for n in left_sorted}, font_size=8, horizontalalignment='right', ax=ax)
-    nx.draw_networkx_labels(B, {n: (pos[n][0]+0.03, pos[n][1]) for n in right_sorted},
-                            labels={n: n for n in right_sorted}, font_size=8, horizontalalignment='left', ax=ax)
+    # draw labels offset outside columns to reduce overlap
+    nx.draw_networkx_labels(B, {n: (pos[n][0], pos[n][1]) for n in left_sorted},
+                            labels={n: wrap_label(n, width=15) for n in left_sorted}, font_size=7, horizontalalignment='right', ax=ax)
+    nx.draw_networkx_labels(B, {n: (pos[n][0], pos[n][1]) for n in right_sorted},
+                            labels={n: wrap_label(n, width=15) for n in right_sorted}, font_size=7, horizontalalignment='left', ax=ax)
+    # aesthetics
     ax.set_title(f"{city}", fontsize=14)
     ax.set_xlim(-0.2, 1.2)
     ax.set_ylim(-0.05, 1.05)
     ax.axis("off")
 
+# shared legend
 legend_handles = [
     Patch(facecolor="#3B8BC2", edgecolor="k", label="Actor Types"),
     Patch(facecolor="#35B779", edgecolor="k", label="Policy Sectors")]

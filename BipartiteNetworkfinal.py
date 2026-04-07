@@ -16,6 +16,7 @@ from matplotlib.colors import LinearSegmentedColormap
 input = Path(r"C:\Users\silvestl\Desktop\NetworkNZC\NetworkstakeholdersCCC.xlsx")
 df = pd.read_excel(input)
 df = df.loc[:, ["City", "Type", "CAP_Topic"]].dropna()
+df["CAP_Topic"] = df["CAP_Topic"].str[:-4]
 
 results = []
 bipartite_by_city = {}

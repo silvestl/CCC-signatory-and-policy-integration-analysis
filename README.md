@@ -1,6 +1,6 @@
 # Climate City Contracts as Instruments of Urban Climate Governance Embeddedness: A Bipartite Network Analysis
 
-Replication data and code for PUBLICATIONNAME
+Replication data and code for PUBLICATIONLINK TBD
 
 ## Repository Contents
 

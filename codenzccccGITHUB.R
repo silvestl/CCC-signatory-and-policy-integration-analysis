@@ -100,7 +100,7 @@ ggplot(Type_plot, aes(x = fct_reorder(Type_grouped, total_n),  # rank by total
   ) +
   theme_minimal()
 
-###HHI (Section 2.2, Figure 3)
+###HHI (Fig 3)
 hhi_from_counts <- function(n) { p <- n / sum(n); sum(p^2) }
 city_hhi <- df %>%
   count(City, Type) %>% group_by(City) %>%
@@ -339,7 +339,7 @@ m1 <- feols(
   data = merged_df,
   vcov = ~State
 )
-#model 2: country fixed effects; countries with a single CCC drop out (N = 60)
+#model 2: country fixed effects; countries with only 1 CCC excl.
 m2 <- feols(
   log_wd ~ log_gdp + log_pop + gcom_co2_per_capita | State,
   data = merged_df,
@@ -350,6 +350,8 @@ etable(
   headers = c("Baseline OLS", "Country FE"),
   fitstat = c("n", "r2", "ar2", "wr2")
 )
+pvalue(m1)
+pvalue(m2)
 #diagnostics model 1
 d   <- merged_df %>% drop_na(log_wd, log_gdp, log_pop, gcom_co2_per_capita)   # N = 71
 lm1 <- lm(log_wd ~ log_gdp + log_pop + gcom_co2_per_capita, data = d)
